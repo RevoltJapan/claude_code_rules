@@ -19,7 +19,7 @@ Revolt inc. で **Claude Code をチーム標準プロセスとして運用**す
 
 - `.claude/common/`：本リポジトリ（唯一の正。submodule）
 - `.claude/project/`：プロジェクト固有（タスク・設計・要件）
-- `.claude/[CLAUDE.md](http://CLAUDE.md)`：入口（短く保つ。読み順を定義）
+- `.claude/CLAUDE.md`：入口（短く保つ。読み順を定義）
 
 ### 入口ファイルの読み順（優先順位）
 
@@ -42,7 +42,6 @@ Revolt inc. で **Claude Code をチーム標準プロセスとして運用**す
 ├─ agents/        # 技術スタック別の専門 subagent
 ├─ commands/      # /impl /review /run の挙動定義
 └─ templates/     # タスクチケットや運用テンプレ
-
 ```
 
 ---
@@ -52,10 +51,8 @@ Revolt inc. で **Claude Code をチーム標準プロセスとして運用**す
 ### 1. submodule を追加
 
 ```
-
 git submodule add <COMMON_REPO_URL> .claude/common
 git commit -m "Add Claude common rules as submodule"
-
 ```
 
 ### 2. clone/セットアップ
@@ -63,17 +60,42 @@ git commit -m "Add Claude common rules as submodule"
 初回clone：
 
 ```
-
 git clone --recurse-submodules <repo>
-
 ```
 
 既にclone済み：
 
 ```
-
 git submodule update --init --recursive
+```
 
+### 3. `.claude/CLAUDE.md` を作成
+
+プロジェクトルートの `.claude/` ディレクトリに `CLAUDE.md` ファイルを作成します。
+
+**テンプレート**: `.claude/common/templates/CLAUDE.md` をコピーして使用
+
+```bash
+cp .claude/common/templates/CLAUDE.md .claude/CLAUDE.md
+```
+
+または、手動で作成：
+
+```markdown
+# Claude Code Configuration
+
+このファイルは、Claude Codeがプロジェクトの設定とコマンドを読み込むための入口ファイルです。
+
+## 読み込み順序
+
+以下の順序でファイルが読み込まれます：
+
+1. `.claude/common/policy/*` - 禁止事項・データ取り扱い
+2. `.claude/common/playbooks/*` - 運用手順・定型プロセス
+3. `.claude/common/skills/*` - 強制したいチェック
+4. `.claude/common/agents/*` - 専門 subagent
+5. `.claude/common/commands/*` - 運用コマンド（`/impl`, `/review`, `/run`等）
+6. `.claude/project/*` - このプロジェクト固有の前提
 ```
 
 ---
@@ -90,6 +112,26 @@ git submodule update --init --recursive
   - `/run .claude/project/01-tasks/NNN-*.md`
 
 > 推奨：タスクは `NNN-<slug>.md` の連番にし、番号＝実行順で迷いを消す。
+
+### コマンドが認識されない場合のトラブルシューティング
+
+1. **`.claude/CLAUDE.md` が存在するか確認**
+   ```bash
+   ls -la .claude/CLAUDE.md
+   ```
+
+2. **submoduleが正しく設定されているか確認**
+   ```bash
+   git submodule status
+   ls -la .claude/common/commands/
+   ```
+
+3. **Claude Codeを再起動する**
+
+4. **コマンドファイルが存在するか確認**
+   ```bash
+   ls -la .claude/common/commands/impl.md
+   ```
 
 ---
 
@@ -124,7 +166,7 @@ git submodule update --init --recursive
 
 - Git tag：`vX.Y.Z`（SemVer）
 - `VERSION`：例 `1.0.0`
-- `[CHANGELOG.md](http://CHANGELOG.md)` を運用
+- `CHANGELOG.md` を運用
 
 submodule は特定コミット参照になるため、タグ + CHANGELOG が追跡しやすいです。
 
