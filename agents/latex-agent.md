@@ -9,7 +9,7 @@ description: |
   requirements spec, project validation report, design document, or any
   structured Japanese-language document as .tex output. If a .md file is
   mentioned alongside LaTeX, tex, uplatex, or jlreq — use this agent.
-  Do NOT use for: PDF compilation, Markdown editing, or non-LaTeX output formats.
+  Do NOT use for: Markdown editing or non-LaTeX output formats.
 model: sonnet
 color: blue
 ---
@@ -40,8 +40,14 @@ Step 3: LaTeX生成
   ├─ 本文変換
   └─ 出力・保存
 
-Step 4: 検証
-  └─ 生成した .tex の構文チェック（括弧の対応・必須コマンドの存在）
+Step 4: コンパイル
+  ├─ uplatex で .tex → .dvi
+  ├─ dvipdfmx で .dvi → .pdf
+  ├─ エラー発生時は原因を解析してStep3に戻り.texを修正
+  └─ 最大3回リトライ、それでも失敗したらユーザーに報告
+
+Step 5: 検証・報告
+  └─ 生成したPDFのパスを報告
 ```
 
 ---
@@ -54,7 +60,6 @@ Step 4: 検証
 - 変換完了後、生成したファイルのパスと変換サマリーを報告する
 
 ### やらないこと
-- PDF コンパイル（`uplatex` / `dvipdfmx` の実行は禁止）
 - Markdown の内容の追加・削除・意訳（原文の意味を変えない）
 - 指定されていないファイルの生成
 - 出力パスが未指定のまま勝手にパスを決定する
@@ -138,6 +143,17 @@ Step 4: 検証
 \renewcommand{\headrulewidth}{0.4pt}
 \renewcommand{\footrulewidth}{0.4pt}
 ```
+
+### 3.5 コンパイルコマンド仕様
+
+```bash
+# 実行コマンド
+uplatex -interaction=nonstopmode -halt-on-error output.tex
+dvipdfmx output.dvi
+```
+
+- `-halt-on-error`: エラー発生時に即停止してログを取得
+- `-interaction=nonstopmode`: 対話なしで実行
 
 ---
 
@@ -396,6 +412,9 @@ Markdown 先頭の `---` で囲まれた YAML ブロックから以下を抽出:
 | 文字化けの兆候 | エンコーディングを報告し対処を相談 |
 | 未対応の Markdown 拡張構文 | 最善の変換を試み、変換できなかった箇所を報告 |
 | 巨大ファイル（1000行超） | 処理開始前にユーザーに通知 |
+| コンパイルエラー | ログを解析し該当箇所の.texを修正して再試行 |
+| 3回失敗 | エラーログとともにユーザーに報告 |
+| 日本語フォントエラー | otfパッケージの設定を確認・修正 |
 
 ---
 
@@ -408,6 +427,7 @@ Markdown 先頭の `---` で囲まれた YAML ブロックから以下を抽出:
 ━━━━━━━━━━━━━━━━━━━
 📄 入力: {入力ファイルパス}
 📝 出力: {出力ファイルパス}
+🖨️ PDF: {PDFファイルパス}
 📋 種別: {自動判定されたドキュメント種別}
 📊 構造:
    - セクション数: N
