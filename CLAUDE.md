@@ -12,9 +12,9 @@
 
 ## プロジェクト側での作業
 
-- 実装: `/impl .claude/project/tasks/NNN-<slug>.md`
-- レビュー: `/review .claude/project/tasks/NNN-<slug>.md`
-- 反復: `/run .claude/project/tasks/NNN-<slug>.md`
+- 実装: `/impl .claude/project/tasks/NNNNN-<slug>.md`
+- レビュー: `/review .claude/project/tasks/NNNNN-<slug>.md`
+- 反復: `/run .claude/project/tasks/NNNNN-<slug>.md`
 
 ## 更新
 
