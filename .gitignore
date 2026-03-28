@@ -1,0 +1,4 @@
+# Claude Code が自動生成するファイル
+settings.local.json
+*.log
+.cache/

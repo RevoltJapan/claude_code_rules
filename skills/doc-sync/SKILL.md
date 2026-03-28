@@ -1,5 +1,5 @@
 ---
-name: documentation-sync
+name: doc-sync
 description: |
   コード変更に伴うドキュメントの同期を強制するスキル。
   API変更、新機能追加、設定変更時にドキュメントが適切に更新されているかを確認します。
@@ -7,7 +7,7 @@ description: |
   <example>
   Context: コード実装またはレビュー時
   user: "APIを変更したのでドキュメントを更新して"
-  assistant: "documentation-syncスキルを適用して、APIドキュメント、README、CHANGELOGの更新を確認します。"
+  assistant: "doc-syncスキルを適用して、APIドキュメント、README、CHANGELOGの更新を確認します。"
   <commentary>
   ドキュメント同期はコード変更時に自動的にチェックされ、更新漏れを防止します。
   </commentary>
