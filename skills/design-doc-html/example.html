@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>ユーザー認証機能 設計書</title>
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "TechArticle",
+    "name": "ユーザー認証機能 設計書",
+    "version": "0.2.0",
+    "audience": "ai-implementation-agent",
+    "scope": {
+      "in":  ["メールアドレス + パスワードでのログイン", "JWT 発行", "ログアウト", "セッション無効化"],
+      "out": ["パスワード再発行フロー", "ソーシャルログイン", "二要素認証", "アカウント凍結処理"]
+    },
+    "decisions": [
+      { "id": "D-001", "summary": "トークンは JWT を使い、有効期限 24h で発行する" },
+      { "id": "D-002", "summary": "パスワードは bcrypt（cost=12）で保存する" },
+      { "id": "D-003", "summary": "リフレッシュトークンは本フェーズでは導入しない" }
+    ],
+    "openQuestions": [
+      { "id": "Q-001", "summary": "Brute-force 対策のレート制限値（試行回数 / 期間）を確定する" }
+    ],
+    "priority": "must"
+  }
+  </script>
+
+  <style>
+    :root {
+      --c-must:   #c0392b;
+      --c-should: #d68910;
+      --c-may:    #16a085;
+    }
+    body { font-family: system-ui, -apple-system, sans-serif; color: #222; max-width: 960px; margin: 2rem auto; padding: 0 1rem; line-height: 1.6; }
+    h1, h2, h3 { line-height: 1.3; }
+    header[data-section="summary"] { border: 1px solid #ddd; border-radius: 8px; padding: 1rem; background: #fafafa; margin-bottom: 1.5rem; }
+    nav[data-section="toc"] ol { padding-left: 1.2rem; }
+    section[data-feature] { border-top: 2px solid #eee; padding-top: 1rem; margin-top: 2rem; }
+    section[data-block] { margin: 0.8rem 0; padding-left: 0.8rem; border-left: 3px solid #eee; }
+    section[data-block="out-of-scope"] { border-left-color: #7d3c98; background: #faf6fb; }
+    [data-priority="must"]   > h2::before { content: "[MUST] ";   color: var(--c-must); font-weight: bold; }
+    [data-priority="should"] > h2::before { content: "[SHOULD] "; color: var(--c-should); font-weight: bold; }
+    [data-priority="may"]    > h2::before { content: "[MAY] ";    color: var(--c-may); font-weight: bold; }
+    table { width: 100%; border-collapse: collapse; margin: 0.5rem 0; }
+    th, td { border: 1px solid #ddd; padding: 0.4rem 0.6rem; text-align: left; vertical-align: top; }
+    th { background: #f5f5f5; }
+    code { background: #f1f1f1; padding: 0.1em 0.35em; border-radius: 3px; }
+    aside[data-for="ai"] { background: #fff8e1; border-left: 3px solid #f1c40f; padding: 0.5rem 0.8rem; margin: 0.5rem 0; font-size: 0.92em; }
+    button[data-action="copy-as-prompt"] { padding: 0.6rem 1.2rem; border: 1px solid #2c3e50; background: #fff; cursor: pointer; border-radius: 4px; }
+    .flow { background: #fff; border: 1px solid #ddd; padding: 0.5rem; }
+  </style>
+</head>
+<body>
+
+  <header data-section="summary">
+    <h1>ユーザー認証機能 設計書</h1>
+    <p><strong>サマリー:</strong> メール + パスワードによるログインと JWT 発行・無効化を実装する。</p>
+    <table>
+      <tr><th>優先度</th><td data-field="priority">must</td></tr>
+      <tr><th>影響範囲</th><td data-field="impact"><code>auth/*</code>, <code>middleware/auth.ts</code>, <code>db/migrations/*</code></td></tr>
+      <tr><th>想定規模</th><td data-field="size">約 400 LOC / 3 日</td></tr>
+      <tr><th>未決件数</th><td data-field="open-count">1</td></tr>
+    </table>
+  </header>
+
+  <nav data-section="toc" aria-label="目次">
+    <h2>目次</h2>
+    <ol>
+      <li><a href="#feat-login">ログイン</a></li>
+      <li><a href="#feat-logout">ログアウト</a></li>
+      <li><a href="#feat-verify">トークン検証ミドルウェア</a></li>
+      <li><a href="#decisions">決定事項</a></li>
+      <li><a href="#open-questions">未決事項</a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+    <!-- ============ 機能 1: ログイン ============ -->
+    <section
+      id="feat-login"
+      data-feature="auth.login"
+      data-priority="must"
+      data-scope="in">
+
+      <h2>ログイン</h2>
+
+      <aside data-for="ai">
+        パスワード照合は <strong>必ず bcrypt.compare</strong> を使い、自前比較・タイミング攻撃に脆弱な実装は禁止する。
+      </aside>
+
+      <section data-block="context">
+        <h3>背景 / 目的 / 利用者</h3>
+        <p>登録済みユーザーがアプリケーションにログインするためのエンドポイント。
+        現在は仮認証（環境変数のトークン）で運用しているため、本実装で置き換える。</p>
+      </section>
+
+      <section data-block="input">
+        <h3>入力</h3>
+        <table>
+          <thead><tr><th>項目</th><th>型</th><th>必須</th><th>制約</th></tr></thead>
+          <tbody>
+            <tr><td>email</td><td>string</td><td>必須</td><td>RFC5322、最大 254 文字</td></tr>
+            <tr><td>password</td><td>string</td><td>必須</td><td>8〜128 文字、平文で受領</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section data-block="process">
+        <h3>処理</h3>
+        <ol>
+          <li data-step="1">email でユーザーを検索する。見つからない場合は <code>401</code> を返す（存在判定を露出しない）。</li>
+          <li data-step="2"><code>bcrypt.compare(password, user.password_hash)</code> で照合する。</li>
+          <li data-step="3">照合成功時、<code>{ sub: user.id, exp: now + 24h }</code> の JWT を発行する（<strong>D-001</strong>）。</li>
+          <li data-step="4">発行した JWT を <code>access_token</code> としてレスポンスする。</li>
+          <li data-step="5">失敗時は <code>401 Unauthorized</code> を返し、レート制限カウンタを進める（<strong>Q-001</strong> の方針確定後）。</li>
+        </ol>
+      </section>
+
+      <section data-block="output">
+        <h3>出力</h3>
+        <table>
+          <tr><th>成功</th><td><code>200 { "access_token": "&lt;jwt&gt;", "token_type": "Bearer", "expires_in": 86400 }</code></td></tr>
+          <tr><th>失敗</th><td><code>401 { "error": "invalid_credentials" }</code></td></tr>
+        </table>
+      </section>
+
+      <section data-block="exception">
+        <h3>例外 / エッジケース</h3>
+        <table>
+          <thead><tr><th>ケース</th><th>挙動</th></tr></thead>
+          <tbody>
+            <tr><td>ユーザーが存在しない</td><td><code>401</code>。存在判定を露出させない</td></tr>
+            <tr><td>パスワード照合失敗</td><td><code>401</code>。同上</td></tr>
+            <tr><td>退職フラグ <code>is_active=false</code> のユーザー</td><td><code>401</code>。理由は返さない</td></tr>
+            <tr><td>password_hash が NULL（外部 IdP 連携ユーザー）</td><td><code>401</code>。本フローでは認証不可</td></tr>
+            <tr><td>email の大文字小文字差</td><td>小文字化して比較する</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section data-block="out-of-scope">
+        <h3>スコープ外（実装しないこと）</h3>
+        <ul>
+          <li><strong>パスワード再発行フロー</strong> — 別タスクで扱う</li>
+          <li><strong>ソーシャルログイン（Google / GitHub）</strong> — Phase 2 で扱う</li>
+          <li><strong>二要素認証 (TOTP / SMS)</strong> — 本リリースでは対象外</li>
+          <li><strong>リフレッシュトークン</strong> — <strong>D-003</strong> により本フェーズでは導入しない</li>
+          <li><strong>アカウント凍結処理</strong> — 別機能で扱う</li>
+        </ul>
+      </section>
+
+    </section>
+
+    <!-- ============ 機能 2: ログアウト ============ -->
+    <section
+      id="feat-logout"
+      data-feature="auth.logout"
+      data-priority="should"
+      data-scope="in">
+
+      <h2>ログアウト</h2>
+
+      <section data-block="context">
+        <h3>背景 / 目的 / 利用者</h3>
+        <p>JWT は本来クライアント側破棄で完結するが、サーバー側ブラックリストで強制無効化できるようにする。</p>
+      </section>
+
+      <section data-block="input">
+        <h3>入力</h3>
+        <table>
+          <thead><tr><th>項目</th><th>型</th><th>必須</th><th>制約</th></tr></thead>
+          <tbody>
+            <tr><td>Authorization ヘッダ</td><td>string</td><td>必須</td><td><code>Bearer &lt;jwt&gt;</code> 形式</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section data-block="process">
+        <h3>処理</h3>
+        <ol>
+          <li data-step="1">JWT の <code>jti</code>（または signature ハッシュ）をブラックリストテーブルに記録する。有効期限は元 JWT の <code>exp</code> まで。</li>
+          <li data-step="2"><code>204 No Content</code> を返す。</li>
+        </ol>
+      </section>
+
+      <section data-block="output">
+        <h3>出力</h3>
+        <p><code>204 No Content</code></p>
+      </section>
+
+      <section data-block="exception">
+        <h3>例外 / エッジケース</h3>
+        <table>
+          <thead><tr><th>ケース</th><th>挙動</th></tr></thead>
+          <tbody>
+            <tr><td>すでにブラックリスト登録済み</td><td>冪等に <code>204</code> を返す</td></tr>
+            <tr><td>JWT 期限切れ</td><td><code>204</code>。すでに無効なので何もしない</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section data-block="out-of-scope">
+        <h3>スコープ外</h3>
+        <ul>
+          <li><strong>全デバイス一括ログアウト</strong> — Phase 2 で扱う</li>
+        </ul>
+      </section>
+
+    </section>
+
+    <!-- ============ 機能 3: トークン検証ミドルウェア ============ -->
+    <section
+      id="feat-verify"
+      data-feature="auth.verify"
+      data-priority="must"
+      data-scope="in">
+
+      <h2>トークン検証ミドルウェア</h2>
+
+      <section data-block="context">
+        <h3>背景 / 目的 / 利用者</h3>
+        <p>保護されたエンドポイントの直前に挟み、JWT を検証して <code>req.user</code> に展開する。</p>
+      </section>
+
+      <section data-block="input">
+        <h3>入力</h3>
+        <table>
+          <tr><th>項目</th><th>制約</th></tr>
+          <tr><td>Authorization ヘッダ</td><td><code>Bearer &lt;jwt&gt;</code></td></tr>
+        </table>
+      </section>
+
+      <section data-block="process">
+        <h3>処理</h3>
+        <ol>
+          <li data-step="1">ヘッダ欠如時は <code>401</code>。</li>
+          <li data-step="2">JWT 署名検証。失敗時は <code>401</code>。</li>
+          <li data-step="3">期限切れは <code>401 { "error": "token_expired" }</code>。</li>
+          <li data-step="4">ブラックリストに存在する場合は <code>401 { "error": "token_revoked" }</code>。</li>
+          <li data-step="5">問題なければ <code>req.user = { id: sub }</code> を設定して <code>next()</code> を呼ぶ。</li>
+        </ol>
+      </section>
+
+      <section data-block="output">
+        <h3>出力</h3>
+        <p>成功時は <code>req.user</code> を埋めて後段ハンドラに委譲。失敗時は上記 <code>401</code> いずれか。</p>
+      </section>
+
+      <section data-block="exception">
+        <h3>例外 / エッジケース</h3>
+        <table>
+          <tr><th>ケース</th><th>挙動</th></tr>
+          <tr><td>JWT は有効だが <code>sub</code> のユーザーが削除済み</td><td><code>401 { "error": "user_not_found" }</code></td></tr>
+        </table>
+      </section>
+
+      <section data-block="out-of-scope">
+        <h3>スコープ外</h3>
+        <ul>
+          <li><strong>権限（ロール / スコープ）チェック</strong> — 別ミドルウェアで実装する</li>
+        </ul>
+      </section>
+
+    </section>
+
+  </main>
+
+  <footer>
+
+    <section id="decisions">
+      <h2>決定事項</h2>
+      <table data-section="decisions">
+        <thead><tr><th>ID</th><th>決定内容</th><th>決定者</th><th>決定日</th></tr></thead>
+        <tbody>
+          <tr><td>D-001</td><td>トークンは JWT、有効期限 24h</td><td>yoshioka</td><td>2026-05-11</td></tr>
+          <tr><td>D-002</td><td>パスワードは bcrypt（cost=12）で保存</td><td>yoshioka</td><td>2026-05-11</td></tr>
+          <tr><td>D-003</td><td>リフレッシュトークンは本フェーズでは導入しない</td><td>yoshioka</td><td>2026-05-11</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="open-questions">
+      <h2>未決事項</h2>
+      <table data-section="open-questions">
+        <thead><tr><th>ID</th><th>内容</th><th>ブロッカー</th><th>担当</th></tr></thead>
+        <tbody>
+          <tr><td>Q-001</td><td>Brute-force 対策のレート制限値（試行回数 / 期間）</td><td>はい</td><td>yoshioka</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section data-section="export">
+      <button data-action="copy-as-prompt" onclick="
+        navigator.clipboard.writeText(document.documentElement.outerHTML);
+        this.textContent = 'コピー完了';
+      ">Copy as Prompt</button>
+    </section>
+
+  </footer>
+
+</body>
+</html>

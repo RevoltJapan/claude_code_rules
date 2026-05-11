@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>{{機能名}} 設計書</title>
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "TechArticle",
+    "name": "{{機能名}} 設計書",
+    "version": "0.1.0",
+    "audience": "ai-implementation-agent",
+    "scope": {
+      "in":  ["{{スコープ内の項目}}"],
+      "out": ["{{スコープ外の項目}}"]
+    },
+    "decisions":     [{ "id": "D-001", "summary": "{{決定事項}}" }],
+    "openQuestions": [{ "id": "Q-001", "summary": "{{未決事項}}" }],
+    "priority": "must"
+  }
+  </script>
+
+  <style>
+    :root {
+      --c-must:   #c0392b;
+      --c-should: #d68910;
+      --c-may:    #16a085;
+      --c-决定:   #2c3e50;
+      --c-未决:   #7d3c98;
+      --c-要レビュー: #7f8c8d;
+    }
+    body { font-family: system-ui, -apple-system, sans-serif; color: #222; max-width: 960px; margin: 2rem auto; padding: 0 1rem; line-height: 1.6; }
+    h1, h2, h3 { line-height: 1.3; }
+    header[data-section="summary"] { border: 1px solid #ddd; border-radius: 8px; padding: 1rem; background: #fafafa; margin-bottom: 1.5rem; }
+    nav[data-section="toc"] ol { padding-left: 1.2rem; }
+    section[data-feature] { border-top: 2px solid #eee; padding-top: 1rem; margin-top: 2rem; }
+    section[data-block] { margin: 0.8rem 0; padding-left: 0.8rem; border-left: 3px solid #eee; }
+    section[data-block="out-of-scope"] { border-left-color: var(--c-未决); background: #faf6fb; }
+    [data-priority="must"]   > h2::before { content: "[MUST] ";   color: var(--c-must); font-weight: bold; }
+    [data-priority="should"] > h2::before { content: "[SHOULD] "; color: var(--c-should); font-weight: bold; }
+    [data-priority="may"]    > h2::before { content: "[MAY] ";    color: var(--c-may); font-weight: bold; }
+    table { width: 100%; border-collapse: collapse; margin: 0.5rem 0; }
+    th, td { border: 1px solid #ddd; padding: 0.4rem 0.6rem; text-align: left; vertical-align: top; }
+    th { background: #f5f5f5; }
+    code { background: #f1f1f1; padding: 0.1em 0.35em; border-radius: 3px; }
+    aside[data-for="ai"] { background: #fff8e1; border-left: 3px solid #f1c40f; padding: 0.5rem 0.8rem; margin: 0.5rem 0; font-size: 0.92em; }
+    button[data-action="copy-as-prompt"] { padding: 0.6rem 1.2rem; border: 1px solid #2c3e50; background: #fff; cursor: pointer; border-radius: 4px; }
+  </style>
+</head>
+<body>
+
+  <!-- ============ サマリーカード（必須・冒頭固定） ============ -->
+  <header data-section="summary">
+    <h1>{{機能名}} 設計書</h1>
+    <p><strong>サマリー:</strong> {{1 行サマリー}}</p>
+    <table>
+      <tr><th>優先度</th><td data-field="priority">must / should / may</td></tr>
+      <tr><th>影響範囲</th><td data-field="impact">対象モジュール / ファイル数</td></tr>
+      <tr><th>想定規模</th><td data-field="size">概算行数 or 工数</td></tr>
+      <tr><th>未決件数</th><td data-field="open-count">0</td></tr>
+    </table>
+  </header>
+
+  <!-- ============ 目次（必須） ============ -->
+  <nav data-section="toc" aria-label="目次">
+    <h2>目次</h2>
+    <ol>
+      <li><a href="#feat-{{slug-1}}">{{機能 1 名}}</a></li>
+      <li><a href="#feat-{{slug-2}}">{{機能 2 名}}</a></li>
+      <li><a href="#decisions">決定事項</a></li>
+      <li><a href="#open-questions">未決事項</a></li>
+    </ol>
+  </nav>
+
+  <!-- ============ 本文：機能ごとに section を繰り返す ============ -->
+  <main>
+
+    <section
+      id="feat-{{slug-1}}"
+      data-feature="{{feature.id.1}}"
+      data-priority="must"
+      data-scope="in">
+
+      <h2>{{機能 1 名}}</h2>
+
+      <aside data-for="ai">
+        この機能の実装時、特に注意してほしい点を 1〜2 行で書く。
+        該当なしの場合はこの aside ごと削除してよい。
+      </aside>
+
+      <!-- 1. 背景・目的・利用者 -->
+      <section data-block="context">
+        <h3>背景 / 目的 / 利用者</h3>
+        <p>{{この機能がなぜ必要か。誰が使うか。既存システムとの関係}}</p>
+      </section>
+
+      <!-- 2. 入力 -->
+      <section data-block="input">
+        <h3>入力</h3>
+        <table>
+          <thead><tr><th>項目</th><th>型</th><th>必須</th><th>制約</th></tr></thead>
+          <tbody>
+            <tr><td>{{項目名}}</td><td>{{型}}</td><td>必須 / 任意</td><td>{{制約}}</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- 3. 処理 -->
+      <section data-block="process">
+        <h3>処理</h3>
+        <ol>
+          <li data-step="1">{{ステップ 1}}</li>
+          <li data-step="2">{{ステップ 2}}</li>
+        </ol>
+      </section>
+
+      <!-- 4. 出力 -->
+      <section data-block="output">
+        <h3>出力</h3>
+        <p>{{戻り値 / 副作用 / 永続化対象}}</p>
+      </section>
+
+      <!-- 5. 例外・エッジケース -->
+      <section data-block="exception">
+        <h3>例外 / エッジケース</h3>
+        <table>
+          <thead><tr><th>ケース</th><th>挙動</th></tr></thead>
+          <tbody>
+            <tr><td>{{ケース}}</td><td>{{挙動}}</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- 6. スコープ外（必須・空不可） -->
+      <section data-block="out-of-scope">
+        <h3>スコープ外（実装しないこと）</h3>
+        <ul>
+          <li>{{暗黙の前提として AI が実装しがちだが、対象外の項目}}</li>
+        </ul>
+      </section>
+
+    </section>
+
+  </main>
+
+  <!-- ============ 決定事項テーブル（必須） ============ -->
+  <footer>
+    <section id="decisions">
+      <h2>決定事項</h2>
+      <table data-section="decisions">
+        <thead><tr><th>ID</th><th>決定内容</th><th>決定者</th><th>決定日</th></tr></thead>
+        <tbody>
+          <tr><td>D-001</td><td>{{決定内容}}</td><td>{{決定者}}</td><td>{{YYYY-MM-DD}}</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ============ 未決事項テーブル（必須） ============ -->
+    <section id="open-questions">
+      <h2>未決事項</h2>
+      <table data-section="open-questions">
+        <thead><tr><th>ID</th><th>内容</th><th>ブロッカー</th><th>担当</th></tr></thead>
+        <tbody>
+          <tr><td>Q-001</td><td>{{内容}}</td><td>はい / いいえ</td><td>{{担当}}</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ============ AI 再入力用エクスポート ============ -->
+    <section data-section="export">
+      <button data-action="copy-as-prompt" onclick="
+        const text = document.documentElement.outerHTML;
+        navigator.clipboard.writeText(text);
+        this.textContent = 'コピー完了';
+      ">Copy as Prompt</button>
+    </section>
+  </footer>
+
+</body>
+</html>
